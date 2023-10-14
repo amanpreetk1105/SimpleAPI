@@ -20,23 +20,7 @@ steps:
 - task: NuGetCommand@2
   inputs:
     restoreSolution: '$(solution)'
-- task: CmdLine@2
-  name: BackupExistingFolder
-  displayName: '1. Backup Existing Deployment Folder'
-  inputs:
-        script: |
-          REM Take backup of the existing deployment folder
-          xcopy /E /H /Y C:\Documents\VSCODE C:\Backup\SampleAPP_%BUILD_BUILDID%
-        workingDirectory: $(Agent.BuildDirectory)
 
-- task: CmdLine@2
-  name: StopAppPoolWebsite
-  displayName: '3. Stop App Pool and Website'
-  inputs:
-        script: |
-          REM Stop the App pool and website in IIS
-          iisreset /stop
-        workingDirectory: $(Agent.BuildDirectory)
 
 - task: VSBuild@1
   inputs:
