@@ -101,7 +101,7 @@ workingDirectory: 'sample-API-Project'
     - task: CopyFiles@2
       displayName: 'Replace New DLLs in Deployment Folder'
       inputs:
-        SourceFolder: 'Sample-API-Project\'
+        SourceFolder: 'Sample-API-Project'
         Contents: '**/*.dll'
         TargetFolder: 'C:\documents\VSCODE'
         CleanTargetFolder: false
