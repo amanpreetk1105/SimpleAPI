@@ -1,7 +1,3 @@
-# ASP.NET Core (.NET Framework)
-# Build and test ASP.NET Core projects targeting the full .NET Framework.
-# Add steps that publish symbols, save build artifacts, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/dotnet-core
 
 trigger:
 - main
@@ -10,133 +6,66 @@ pool:
   vmImage: 'windows-latest'
 
 variables:
-  solution: '**/*.sln'
-  buildPlatform: 'Any CPU'
-  buildConfiguration: 'Release'
+#Here defaultWorkingDirctory is C:\Users\azadv\Documents\VSCODE
+  - name: backupFolder
+    value: '$(DefaultWorkingDirectory)/backup'
+  - name: deploymentFolder
+    value: 'C:\SampleAPP'
+  - name: appPool
+    value: 'AppPool'
+  - name: websiteIIS
+    value: 'IIS'
 
-steps:
-- task: NuGetToolInstaller@1
-
-- task: NuGetCommand@2
-  inputs:
-    restoreSolution: '$(solution)'
-
-
-- task: VSBuild@1
-  inputs:
-    solution: '$(solution)'
-    msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:DesktopBuildPackageLocation="$(build.artifactStagingDirectory)\WebApp.zip" /p:DeployIisAppPath="Default Web Site"'
-    platform: '$(buildPlatform)'
-    configuration: '$(buildConfiguration)'
-
-- task: VSTest@2
-  inputs:
-    platform: '$(buildPlatform)'
-    configuration: '$(buildConfiguration)'
-- task: CmdLine@2
-  name: Backup Existing Folder
-  displayName: '1. Backup Existing Deployment Folder'
-  inputs:
-        script: |
-          REM Take backup of the existing deployment folder
-          xcopy /E /H /Y C:\SampleAPP C:\Backup\SampleAPP_%BUILD_BUILDID%
-        workingDirectory: $(Agent.BuildDirectory)
-
-- task: CmdLine@2
-  name: StopAppPool Website
-  displayName: 'Stop App Pool and Website'
-  inputs:
-        script: |
-          REM Stop the App pool and website in IIS
-          iisreset /stop
-        workingDirectory: $(Agent.BuildDirectory)
-
-- script: 'dotnet build'
-      
-workingDirectory: 'sample-API-Project'
-
-    - task: CopyFiles@2
-      displayName: 'Replace New DLLs in Deployment Folder'
-      inputs:
-        SourceFolder: 'path-to-artifacts'
-        Contents: '**/*.dll'
-        TargetFolder: 'C:\SampleAPP'
-        CleanTargetFolder: false
-
-    - task: CmdLine@2
-      name: Start AppPool Website
-      displayName: 'Start App Pool and Website'
-      inputs:
-        script: |
-          REM Start the App pool and website in IIS
-          iisreset /start
-        workingDirectory: $(Agent.BuildDirectory)
-
-- stage: Deploy Windows Service
+stages:
+- stage: Backup
   jobs:
-  - job: Deploy Windows Service
+  - job: Backup-file
     steps:
-    - task: CmdLine@2
-      name: BackupExistingDeploymentFolder
-      displayName: 'Backup Existing Deployment Folder'
-      inputs:
-        script: |
-          REM Take backup of the existing deployment folder
-          xcopy /E /H /Y  C:\Documents\VSCODE C:\Backup\SampleAPP_%BUILD_BUILDID%
-        workingDirectory: $(Agent.BuildDirectory)
+    - powershell: |
+      #Create bckupfolder if it doesn’t exist.
+        if (-not (Test-Path -Path $(backupFolder))) {
+          New-Item -ItemType Directory -Path $(backupFolder)
+        }
+        # Create backup of existing deployment folder.
+        Copy-Item -Path $(deploymentFolder) -Destination $(backupFolder) -Recurse -Force
+      displayName: 'Backup Deployment Folder'
+    - powershell: 'Stop-WebAppPool -Name $(appPool)'
+      displayName: 'Stop App Pool'
+    - powershell: 'Stop-Website -Name $(websiteIIS)'
+      displayName: 'Stop Website'
 
-    - task: CmdLine@2
-      name: StopService
-      displayName: 'Stop Service'
-      inputs:
-        script: |
-          REM Stop the Service
-          sc stop ServiceName
-        workingDirectory: $(Agent.BuildDirectory)
-
-    - script: 'dotnet build'
-      displayName: 'Build the Repo'
-      workingDirectory: 'path-to-repo'
-
-    - task: CopyFiles@2
-      displayName: 'Replace New DLLs in Deployment Folder'
-      inputs:
-        SourceFolder: 'Sample-API-Project'
-        Contents: '**/*.dll'
-        TargetFolder: 'C:\documents\VSCODE'
-        CleanTargetFolder: false
-
-    - task: CmdLine@2
-      name: Start Service
-      displayName: 'Start Service'
-      inputs:
-        script: |
-          REM Start the Service
-          sc start ServiceName
-        workingDirectory: $(Agent.BuildDirectory)
-
-- stage: Release
+- stage: Deploy                                                                                    #first Backup stage will run.
+  dependsOn: Backup
   jobs:
-  - job: CreateRelease
-    steps:
+  - job: DeployJob
+    steps:                                                                                                   
+    - script: 'dotnet build SimpleAPIln.sln’                                          
+      displayName: 'Build the Solution'
     - script: |
-        # Add steps to create and manage releases
-      displayName: 'Create Release'
+        # Replace new DLLs in the Deployment folder
+        Remove-Item -Path $(deploymentFolder) -Recurse -Force
+        Copy-Item -Path $(System.DefaultWorkingDirectory)/YourArtifactPath/* -Destination $(deploymentFolder) -Recurse
+      displayName: 'Deploy to Deployment Folder'
+    - powershell: |
+        # Restart the app pool and IIS service
+        Start-WebAppPool -Name $(appPool)
+        Start-Website -Name $(websiteIIS)
+      displayName: 'Restart App Pool and Website'
 
-- stage: Deploy WebAPI Release
+- stage: Rollback                                                                              # fist deploy stage will run.
+  dependsOn: Deploy
   jobs:
-  - job: Deploy WebAPI Release
+  - job: Rollback
     steps:
-    - script: |
-        # deploy  web API release
-      displayName: 'Deploy Web API Release'
-
-- stage: Deploy WindowsService Release
-  jobs:
-  - job: Deploy Windows Service Release
-    steps:
-    - script: |
-        # Deploy Windows service release
-      displayName: 'Deploy Windows Service Release'
-
-
+    - powershell: |
+        $deploymentSuccess = $true
+        if (-not $deploymentSuccess) {
+          Remove-Item -Path $(deploymentFolder) -Recurse -Force
+          Copy-Item -Path $(backupFolder) -Destination $(deploymentFolder) -Recurse -Force
+        }
+      displayName: 'Rollback Deployment'
+    - powershell: |
+        # Restart the app pool and IIS service
+        Start-WebAppPool -Name $(appPool)
+        Start-Website -Name $(websiteIIS)
+      displayName: 'Restart App Pool and Website'
