@@ -33,3 +33,110 @@ steps:
   inputs:
     platform: '$(buildPlatform)'
     configuration: '$(buildConfiguration)'
+- task: CmdLine@2
+  name: BackupExistingFolder
+  displayName: '1. Backup Existing Deployment Folder'
+  inputs:
+        script: |
+          REM Take backup of the existing deployment folder
+          xcopy /E /H /Y C:\SampleAPP C:\Backup\SampleAPP_%BUILD_BUILDID%
+        workingDirectory: $(Agent.BuildDirectory)
+
+- task: CmdLine@2
+  name: StopAppPoolWebsite
+  displayName: '3. Stop App Pool and Website'
+  inputs:
+        script: |
+          REM Stop the App pool and website in IIS
+          iisreset /stop
+        workingDirectory: $(Agent.BuildDirectory)
+
+- script: 'dotnet build'
+      
+workingDirectory: 'sample-API-Project'
+
+    - task: CopyFiles@2
+      displayName: '5. Replace New DLLs in Deployment Folder'
+      inputs:
+        SourceFolder: 'path-to-artifacts'
+        Contents: '**/*.dll'
+        TargetFolder: 'C:\SampleAPP'
+        CleanTargetFolder: false
+
+    - task: CmdLine@2
+      name: Start AppPool Website
+      displayName: '7. Start App Pool and Website'
+      inputs:
+        script: |
+          REM Start the App pool and website in IIS
+          iisreset /start
+        workingDirectory: $(Agent.BuildDirectory)
+
+- stage: Deploy Windows Service
+  jobs:
+  - job: Deploy Windows Service
+    steps:
+    - task: CmdLine@2
+      name: BackupExistingDeploymentFolder
+      displayName: 'Backup Existing Deployment Folder'
+      inputs:
+        script: |
+          REM Take backup of the existing deployment folder
+          xcopy /E /H /Y  C:\Documents\VSCODE C:\Backup\SampleAPP_%BUILD_BUILDID%
+        workingDirectory: $(Agent.BuildDirectory)
+
+    - task: CmdLine@2
+      name: StopService
+      displayName: '12. Stop Service'
+      inputs:
+        script: |
+          REM Stop the Service
+          sc stop ServiceName
+        workingDirectory: $(Agent.BuildDirectory)
+
+    - script: 'dotnet build'
+      displayName: 'Build the Repo'
+      workingDirectory: 'path-to-repo'
+
+    - task: CopyFiles@2
+      displayName: 'Replace New DLLs in Deployment Folder'
+      inputs:
+        SourceFolder: 'Sample-API-Project\'
+        Contents: '**/*.dll'
+        TargetFolder: 'C:\documents\VSCODE'
+        CleanTargetFolder: false
+
+    - task: CmdLine@2
+      name: Start Service
+      displayName: 'Start Service'
+      inputs:
+        script: |
+          REM Start the Service
+          sc start ServiceName
+        workingDirectory: $(Agent.BuildDirectory)
+
+- stage: Release
+  jobs:
+  - job: CreateRelease
+    steps:
+    - script: |
+        # Add steps to create and manage releases
+      displayName: 'Create Release'
+
+- stage: Deploy WebAPI Release
+  jobs:
+  - job: Deploy WebAPI Release
+    steps:
+    - script: |
+        # deploy  web API release
+      displayName: 'Deploy Web API Release'
+
+- stage: Deploy WindowsService Release
+  jobs:
+  - job: Deploy Windows Service Release
+    steps:
+    - script: |
+        # Deploy Windows service release
+      displayName: 'Deploy Windows Service Release'
+
+
