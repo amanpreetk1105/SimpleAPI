@@ -34,7 +34,7 @@ steps:
     platform: '$(buildPlatform)'
     configuration: '$(buildConfiguration)'
 - task: CmdLine@2
-  name: BackupExistingFolder
+  name: Backup Existing Folder
   displayName: '1. Backup Existing Deployment Folder'
   inputs:
         script: |
@@ -43,8 +43,8 @@ steps:
         workingDirectory: $(Agent.BuildDirectory)
 
 - task: CmdLine@2
-  name: StopAppPoolWebsite
-  displayName: '3. Stop App Pool and Website'
+  name: StopAppPool Website
+  displayName: 'Stop App Pool and Website'
   inputs:
         script: |
           REM Stop the App pool and website in IIS
@@ -56,7 +56,7 @@ steps:
 workingDirectory: 'sample-API-Project'
 
     - task: CopyFiles@2
-      displayName: '5. Replace New DLLs in Deployment Folder'
+      displayName: 'Replace New DLLs in Deployment Folder'
       inputs:
         SourceFolder: 'path-to-artifacts'
         Contents: '**/*.dll'
@@ -65,7 +65,7 @@ workingDirectory: 'sample-API-Project'
 
     - task: CmdLine@2
       name: Start AppPool Website
-      displayName: '7. Start App Pool and Website'
+      displayName: 'Start App Pool and Website'
       inputs:
         script: |
           REM Start the App pool and website in IIS
@@ -87,7 +87,7 @@ workingDirectory: 'sample-API-Project'
 
     - task: CmdLine@2
       name: StopService
-      displayName: '12. Stop Service'
+      displayName: 'Stop Service'
       inputs:
         script: |
           REM Stop the Service
