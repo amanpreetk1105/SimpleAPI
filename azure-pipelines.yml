@@ -44,7 +44,7 @@ stages:
     - script: |
         # Replace new DLLs in the Deployment folder
         Remove-Item -Path $(deploymentFolder) -Recurse -Force
-        Copy-Item -Path $(System.DefaultWorkingDirectory)/* -Destination $(deploymentFolder) -Recurse
+        Copy-Item -Path $(System.DefaultWorkingDirectory)/simpleAPIln -Destination $(deploymentFolder) -Recurse
       displayName: 'Deploy to Deployment Folder'
     - powershell: |
         # Restart the app pool and IIS service
