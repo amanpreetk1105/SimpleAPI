@@ -6,7 +6,7 @@ pool:
   vmImage: 'windows-latest'
 
 variables:
-#Here defaultWorkingDirctory is C:\Users\azadv\Documents\VSCODE
+
   - name: backupFolder
     value: '$(DefaultWorkingDirectory)/backup'
   - name: deploymentFolder
